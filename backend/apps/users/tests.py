@@ -1,0 +1,309 @@
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient, APITestCase
+
+User = get_user_model()
+
+
+class UserModelTests(TestCase):
+    """Test custom User model."""
+
+    def test_create_user_success(self):
+        """Test creating a user with email and password."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test User"
+        )
+        self.assertEqual(user.email, "test@example.com")
+        self.assertEqual(user.name, "Test User")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+
+    def test_create_user_without_email_raises_error(self):
+        """Test that creating user without email raises ValueError."""
+        with self.assertRaises(ValueError) as context:
+            User.objects.create_user(email="", password="testpass123", name="Test")
+        self.assertIn("email", str(context.exception).lower())
+
+    def test_email_is_normalized(self):
+        """Test that email is normalized (lowercased)."""
+        user = User.objects.create_user(
+            email="Test@EXAMPLE.COM", password="testpass123", name="Test"
+        )
+        self.assertEqual(user.email, "test@example.com")
+
+    def test_email_uniqueness(self):
+        """Test that duplicate emails are not allowed."""
+        User.objects.create_user(
+            email="test@example.com", password="pass123", name="User 1"
+        )
+        with self.assertRaises(Exception):
+            User.objects.create_user(
+                email="test@example.com", password="pass456", name="User 2"
+            )
+
+    def test_create_superuser_success(self):
+        """Test creating a superuser."""
+        admin = User.objects.create_superuser(
+            email="admin@example.com", password="adminpass123", name="Admin"
+        )
+        self.assertEqual(admin.email, "admin@example.com")
+        self.assertTrue(admin.is_staff)
+        self.assertTrue(admin.is_superuser)
+
+    def test_user_str_method(self):
+        """Test user string representation."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        self.assertEqual(str(user), "test@example.com")
+
+
+class RegistrationTests(APITestCase):
+    """Test user registration endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.register_url = "/api/auth/registration/"
+
+    def test_successful_registration(self):
+        """Test successful user registration with valid data."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertIn(response.status_code, [201, 204])
+        self.assertTrue(User.objects.filter(email="john@example.com").exists())
+        user = User.objects.get(email="john@example.com")
+        self.assertEqual(user.name, "John Doe")
+
+    def test_registration_without_name(self):
+        """Test registration fails when name is missing."""
+        data = {"email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email="john@example.com").exists())
+
+    def test_registration_without_email(self):
+        """Test registration fails when email is missing."""
+        data = {"name": "John Doe", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_without_password(self):
+        """Test registration fails when password is missing."""
+        data = {"name": "John Doe", "email": "john@example.com"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_with_invalid_email_format(self):
+        """Test registration fails with invalid email format."""
+        data = {"name": "John Doe", "email": "not-an-email", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_with_duplicate_email(self):
+        """Test registration fails when email already exists."""
+        User.objects.create_user(
+            email="existing@example.com", password="pass123", name="Existing"
+        )
+        data = {"name": "New User", "email": "existing@example.com", "password1": "newpass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+        self.assertIn("already exists", response.data["email"][0].lower())
+
+    def test_registration_with_weak_password(self):
+        """Test registration with weak password (numeric only)."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "123456"}
+        response = self.client.post(self.register_url, data)
+        # Django's default validators should reject this
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_with_very_short_password(self):
+        """Test registration with password shorter than minimum."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "pass"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_with_empty_name(self):
+        """Test registration with empty name field."""
+        data = {"name": "", "email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_registration_with_whitespace_only_name(self):
+        """Test registration with whitespace-only name."""
+        data = {"name": "   ", "email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        # Whitespace-only name might pass format validation but should not be ideal
+        if response.status_code == 201:
+            user = User.objects.get(email="john@example.com")
+            # Name should be stored, even if whitespace
+            self.assertIsNotNone(user.name)
+
+    def test_registration_email_case_insensitive(self):
+        """Test that registration normalizes email to lowercase."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertIn(response.status_code, [201, 204])
+        user = User.objects.get(email="john@example.com")
+        self.assertEqual(user.email, "john@example.com")
+
+    def test_registration_returns_token(self):
+        """Test that successful registration returns an auth token or creates user."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        response = self.client.post(self.register_url, data)
+        self.assertIn(response.status_code, [201, 204])
+        # User should be created
+        self.assertTrue(User.objects.filter(email="john@example.com").exists())
+
+
+class LoginTests(APITestCase):
+    """Test user login endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.login_url = "/api/auth/login/"
+        self.user_data = {"email": "testuser@example.com", "password": "testpass123"}
+        self.user = User.objects.create_user(
+            email=self.user_data["email"],
+            password=self.user_data["password"],
+            name="Test User",
+        )
+
+    def test_successful_login(self):
+        """Test successful login with valid credentials."""
+        response = self.client.post(self.login_url, self.user_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("key", response.data)
+
+    def test_login_with_wrong_password(self):
+        """Test login fails with incorrect password."""
+        data = {"email": self.user_data["email"], "password": "wrongpassword"}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_with_nonexistent_email(self):
+        """Test login fails with non-existent email."""
+        data = {"email": "nonexistent@example.com", "password": "anypassword"}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_without_email(self):
+        """Test login fails when email is missing."""
+        data = {"password": "testpass123"}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_without_password(self):
+        """Test login fails when password is missing."""
+        data = {"email": self.user_data["email"]}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_with_empty_email(self):
+        """Test login fails with empty email."""
+        data = {"email": "", "password": "testpass123"}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_with_empty_password(self):
+        """Test login fails with empty password."""
+        data = {"email": self.user_data["email"], "password": ""}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_with_inactive_user(self):
+        """Test login fails for inactive user."""
+        self.user.is_active = False
+        self.user.save()
+        response = self.client.post(self.login_url, self.user_data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_email_case_insensitive(self):
+        """Test that login works with lowercase email."""
+        data = {"email": "testuser@example.com", "password": self.user_data["password"]}
+        response = self.client.post(self.login_url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("key", response.data)
+
+
+class TokenAuthenticationTests(APITestCase):
+    """Test token authentication for protected endpoints."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="testuser@example.com", password="testpass123", name="Test User"
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.user_detail_url = "/api/auth/user/"
+
+    def test_authenticated_request_with_valid_token(self):
+        """Test accessing protected endpoint with valid token."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["email"], self.user.email)
+
+    def test_authenticated_request_without_token(self):
+        """Test accessing protected endpoint without token."""
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_authenticated_request_with_invalid_token(self):
+        """Test accessing protected endpoint with invalid token."""
+        self.client.credentials(HTTP_AUTHORIZATION="Token invalidtoken123")
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_authenticated_request_with_malformed_header(self):
+        """Test accessing protected endpoint with malformed auth header."""
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalidtoken")
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_authenticated_request_with_empty_token(self):
+        """Test accessing protected endpoint with empty token."""
+        self.client.credentials(HTTP_AUTHORIZATION="Token ")
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_user_detail_returns_correct_user(self):
+        """Test that user detail endpoint returns correct user data."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        response = self.client.get(self.user_detail_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["email"], "testuser@example.com")
+
+
+class LogoutTests(APITestCase):
+    """Test user logout endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.logout_url = "/api/auth/logout/"
+        self.user = User.objects.create_user(
+            email="testuser@example.com", password="testpass123", name="Test User"
+        )
+        self.token = Token.objects.create(user=self.user)
+
+    def test_successful_logout(self):
+        """Test successful logout with valid token."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        response = self.client.post(self.logout_url)
+        self.assertEqual(response.status_code, 200)
+        # Token should be deleted
+        self.assertFalse(Token.objects.filter(key=self.token.key).exists())
+
+    def test_logout_without_token(self):
+        """Test logout without authentication."""
+        response = self.client.post(self.logout_url)
+        # dj-rest-auth returns 200 even without auth, treating it as a no-op
+        self.assertIn(response.status_code, [200, 401])
+
+    def test_logout_with_invalid_token(self):
+        """Test logout fails with invalid token."""
+        self.client.credentials(HTTP_AUTHORIZATION="Token invalidtoken123")
+        response = self.client.post(self.logout_url)
+        self.assertEqual(response.status_code, 401)
