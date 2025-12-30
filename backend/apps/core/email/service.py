@@ -138,9 +138,7 @@ class EmailService:
         defaults = {
             "site_name": getattr(settings, "SITE_NAME", "Ticketing"),
             "site_url": getattr(settings, "SITE_URL", "http://localhost:3000"),
-            "support_email": getattr(
-                settings, "SUPPORT_EMAIL", self.from_email
-            ),
+            "support_email": getattr(settings, "SUPPORT_EMAIL", self.from_email),
             "current_year": datetime.datetime.now().year,
         }
         return {**defaults, **context}

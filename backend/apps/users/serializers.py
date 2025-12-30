@@ -1,5 +1,8 @@
+from typing import Any
+
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from django.contrib.auth import get_user_model
+from django.http import HttpRequest
 from rest_framework import serializers
 
 User = get_user_model()
@@ -10,20 +13,20 @@ class CustomRegisterSerializer(RegisterSerializer):
     name = serializers.CharField(max_length=255, required=True)
     password2 = None
 
-    def get_cleaned_data(self):
+    def get_cleaned_data(self) -> dict[str, str]:
         return {
             "email": self.validated_data.get("email", ""),
             "password1": self.validated_data.get("password1", ""),
             "name": self.validated_data.get("name", ""),
         }
 
-    def validate_email(self, email):
+    def validate_email(self, email: str) -> str:
         email = email.lower()
         if User.objects.filter(email=email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return email
 
-    def validate(self, attrs):
+    def validate(self, attrs: Any) -> Any:  # type: ignore[override]
         if not attrs.get("email"):
             raise serializers.ValidationError({"email": "This field may not be blank."})
         if not attrs.get("password1"):
@@ -34,11 +37,11 @@ class CustomRegisterSerializer(RegisterSerializer):
             raise serializers.ValidationError({"name": "This field may not be blank."})
         return attrs
 
-    def save(self, request):
+    def save(self, request: HttpRequest, **kwargs: Any) -> Any:  # type: ignore[override]
         from backend.apps.companies.models import Company
         from backend.apps.core.email import send_email
 
-        user = super().save(request)
+        user = super().save(request, **kwargs)
         user.name = self.validated_data.get("name", "")
         user.save()
 
@@ -68,21 +71,21 @@ class VerifyEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     code = serializers.CharField(max_length=6, min_length=6, required=True)
 
-    def validate_email(self, email):
+    def validate_email(self, email: str) -> str:
         return email.lower()
 
 
 class ResendVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
-    def validate_email(self, email):
+    def validate_email(self, email: str) -> str:
         return email.lower()
 
 
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
-    def validate_email(self, email):
+    def validate_email(self, email: str) -> str:
         return email.lower()
 
 

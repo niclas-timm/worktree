@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import random
 import string
+from datetime import timedelta
+from typing import Any
 
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -10,8 +14,10 @@ from django.db import models
 from django.utils import timezone
 
 
-class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+class UserManager(BaseUserManager["User"]):
+    def create_user(
+        self, email: str, password: str | None = None, **extra_fields: Any
+    ) -> User:
         if not email:
             raise ValueError("Users must have an email address")
         email = self.normalize_email(email).lower()
@@ -20,7 +26,9 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(
+        self, email: str, password: str | None = None, **extra_fields: Any
+    ) -> User:
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
@@ -42,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Onboarding
     is_onboarded = models.BooleanField(default=False)
 
-    objects = UserManager()
+    objects: UserManager = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["name"]
@@ -50,34 +58,44 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Verification code expires after 15 minutes
     VERIFICATION_CODE_EXPIRY_MINUTES = 15
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.email
 
-    def generate_verification_code(self):
+    def generate_verification_code(self) -> str:
         """Generate a 6-digit verification code and set the timestamp."""
         self.email_verification_code = "".join(random.choices(string.digits, k=6))
         self.email_verification_code_created_at = timezone.now()
-        self.save(update_fields=["email_verification_code", "email_verification_code_created_at"])
+        self.save(
+            update_fields=[
+                "email_verification_code",
+                "email_verification_code_created_at",
+            ]
+        )
         return self.email_verification_code
 
-    def is_verification_code_valid(self, code):
+    def is_verification_code_valid(self, code: str) -> bool:
         """Check if the provided code matches and hasn't expired."""
-        if not self.email_verification_code or not self.email_verification_code_created_at:
+        if (
+            not self.email_verification_code
+            or not self.email_verification_code_created_at
+        ):
             return False
         if self.email_verification_code != code:
             return False
-        expiry_time = self.email_verification_code_created_at + timezone.timedelta(
+        expiry_time = self.email_verification_code_created_at + timedelta(
             minutes=self.VERIFICATION_CODE_EXPIRY_MINUTES
         )
         return timezone.now() <= expiry_time
 
-    def verify_email(self):
+    def verify_email(self) -> None:
         """Mark the email as verified and clear the verification code."""
         self.is_email_verified = True
         self.email_verification_code = None
         self.email_verification_code_created_at = None
-        self.save(update_fields=[
-            "is_email_verified",
-            "email_verification_code",
-            "email_verification_code_created_at",
-        ])
+        self.save(
+            update_fields=[
+                "is_email_verified",
+                "email_verification_code",
+                "email_verification_code_created_at",
+            ]
+        )

@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0002_add_email_verification_fields'),
+        ("users", "0002_add_email_verification_fields"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='is_onboarded',
+            model_name="user",
+            name="is_onboarded",
             field=models.BooleanField(default=False),
         ),
     ]

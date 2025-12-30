@@ -14,7 +14,6 @@ def reverse_onboarded(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("users", "0003_add_is_onboarded_field"),
     ]

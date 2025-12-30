@@ -1,13 +1,12 @@
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
 
-User = get_user_model()
+from backend.apps.users.models import User
 
 
 class UserModelTests(TestCase):
@@ -137,7 +136,11 @@ class RegistrationTests(APITestCase):
     @patch("backend.apps.core.email.send_email")
     def test_successful_registration(self, mock_send_email):
         """Test successful user registration with valid data."""
-        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         response = self.client.post(self.register_url, data)
         self.assertIn(response.status_code, [201, 204])
         self.assertTrue(User.objects.filter(email="john@example.com").exists())
@@ -147,7 +150,11 @@ class RegistrationTests(APITestCase):
     @patch("backend.apps.core.email.send_email")
     def test_registration_generates_verification_code(self, mock_send_email):
         """Test that registration generates a verification code."""
-        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         self.client.post(self.register_url, data)
         user = User.objects.get(email="john@example.com")
         self.assertIsNotNone(user.email_verification_code)
@@ -157,7 +164,11 @@ class RegistrationTests(APITestCase):
     @patch("backend.apps.core.email.send_email")
     def test_registration_sends_verification_email(self, mock_send_email):
         """Test that registration sends a verification email."""
-        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         self.client.post(self.register_url, data)
         mock_send_email.assert_called_once()
         call_kwargs = mock_send_email.call_args[1]
@@ -186,7 +197,11 @@ class RegistrationTests(APITestCase):
 
     def test_registration_with_invalid_email_format(self):
         """Test registration fails with invalid email format."""
-        data = {"name": "John Doe", "email": "not-an-email", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "not-an-email",
+            "password1": "securepass123",
+        }
         response = self.client.post(self.register_url, data)
         self.assertEqual(response.status_code, 400)
 
@@ -195,7 +210,11 @@ class RegistrationTests(APITestCase):
         User.objects.create_user(
             email="existing@example.com", password="pass123", name="Existing"
         )
-        data = {"name": "New User", "email": "existing@example.com", "password1": "newpass123"}
+        data = {
+            "name": "New User",
+            "email": "existing@example.com",
+            "password1": "newpass123",
+        }
         response = self.client.post(self.register_url, data)
         self.assertEqual(response.status_code, 400)
         self.assertIn("email", response.data)
@@ -222,7 +241,11 @@ class RegistrationTests(APITestCase):
 
     def test_registration_with_whitespace_only_name(self):
         """Test registration with whitespace-only name."""
-        data = {"name": "   ", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "   ",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         response = self.client.post(self.register_url, data)
         # Whitespace-only name might pass format validation but should not be ideal
         if response.status_code == 201:
@@ -232,7 +255,11 @@ class RegistrationTests(APITestCase):
 
     def test_registration_email_case_insensitive(self):
         """Test that registration normalizes email to lowercase."""
-        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         response = self.client.post(self.register_url, data)
         self.assertIn(response.status_code, [201, 204])
         user = User.objects.get(email="john@example.com")
@@ -240,7 +267,11 @@ class RegistrationTests(APITestCase):
 
     def test_registration_returns_token(self):
         """Test that successful registration returns an auth token or creates user."""
-        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "password1": "securepass123",
+        }
         response = self.client.post(self.register_url, data)
         self.assertIn(response.status_code, [201, 204])
         # User should be created
@@ -448,7 +479,9 @@ class VerifyEmailTests(APITestCase):
 
     def test_verification_with_expired_code(self):
         """Test verification fails with expired code."""
-        self.user.email_verification_code_created_at = timezone.now() - timedelta(minutes=16)
+        self.user.email_verification_code_created_at = timezone.now() - timedelta(
+            minutes=16
+        )
         self.user.save()
         data = {"email": self.user.email, "code": self.code}
         response = self.client.post(self.verify_url, data)

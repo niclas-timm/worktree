@@ -111,7 +111,9 @@ class ResendVerificationView(APIView):
         except User.DoesNotExist:
             # Return success even if user doesn't exist (security: don't reveal user existence)
             return Response(
-                {"detail": "If an account exists with this email, a verification code has been sent."},
+                {
+                    "detail": "If an account exists with this email, a verification code has been sent."
+                },
                 status=status.HTTP_200_OK,
             )
 
@@ -155,7 +157,9 @@ class PasswordResetView(APIView):
         except User.DoesNotExist:
             # Return success even if user doesn't exist (security: don't reveal user existence)
             return Response(
-                {"detail": "If an account exists with this email, a password reset link has been sent."},
+                {
+                    "detail": "If an account exists with this email, a password reset link has been sent."
+                },
                 status=status.HTTP_200_OK,
             )
 
@@ -177,7 +181,9 @@ class PasswordResetView(APIView):
         )
 
         return Response(
-            {"detail": "If an account exists with this email, a password reset link has been sent."},
+            {
+                "detail": "If an account exists with this email, a password reset link has been sent."
+            },
             status=status.HTTP_200_OK,
         )
 
