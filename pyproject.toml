@@ -1,0 +1,25 @@
+[project]
+name = "ticketing"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "debugpy>=1.8.19",
+    "django>=6.0",
+    "psycopg[bianry,standard]>=3.3.2",
+    "python-dotenv>=1.2.1",
+    "ruff>=0.14.10",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+fixable = ["ALL"]
+
+[tool.django-stubs]
+django_settings_module = "backend.config.settings"
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.8",
+]
