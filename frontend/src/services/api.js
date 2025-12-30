@@ -47,6 +47,21 @@ export const authApi = {
 
   confirmPasswordReset: (uid, token, newPassword) =>
     api.post("/auth/password/reset/confirm/", { uid, token, new_password: newPassword }),
+
+  completeOnboarding: () => api.post("/auth/complete-onboarding/"),
+};
+
+export const companyApi = {
+  getMyCompany: () => api.get("/companies/my/"),
+
+  updateMyCompany: (data) => {
+    const formData = new FormData();
+    if (data.name !== undefined) formData.append("name", data.name);
+    if (data.logo !== undefined) formData.append("logo", data.logo);
+    return api.patch("/companies/my/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export default api;

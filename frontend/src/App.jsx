@@ -6,37 +6,66 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
+import Onboarding from "@/pages/Onboarding";
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-muted-foreground">Loading...</div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
+  // Redirect to onboarding if not completed
+  if (user && !user.is_onboarded) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return children;
+}
+
+function OnboardingRoute({ children }) {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Redirect to dashboard if already onboarded
+  if (user && user.is_onboarded) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
 }
 
 function PublicRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (isAuthenticated) {
+    // Redirect based on onboarding status
+    if (user && !user.is_onboarded) {
+      return <Navigate to="/onboarding" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -84,6 +113,14 @@ function AppRoutes() {
           <PublicRoute>
             <ResetPassword />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <OnboardingRoute>
+            <Onboarding />
+          </OnboardingRoute>
         }
       />
       <Route

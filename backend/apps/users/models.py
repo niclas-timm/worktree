@@ -39,6 +39,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)
     email_verification_code_created_at = models.DateTimeField(blank=True, null=True)
 
+    # Onboarding
+    is_onboarded = models.BooleanField(default=False)
+
     objects = UserManager()
 
     USERNAME_FIELD = "email"

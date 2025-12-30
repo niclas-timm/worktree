@@ -1,5 +1,5 @@
-from django.contrib.auth import get_user_model
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 User = get_user_model()
@@ -27,17 +27,27 @@ class CustomRegisterSerializer(RegisterSerializer):
         if not attrs.get("email"):
             raise serializers.ValidationError({"email": "This field may not be blank."})
         if not attrs.get("password1"):
-            raise serializers.ValidationError({"password1": "This field may not be blank."})
+            raise serializers.ValidationError(
+                {"password1": "This field may not be blank."}
+            )
         if not attrs.get("name"):
             raise serializers.ValidationError({"name": "This field may not be blank."})
         return attrs
 
     def save(self, request):
+        from backend.apps.companies.models import Company
         from backend.apps.core.email import send_email
 
         user = super().save(request)
         user.name = self.validated_data.get("name", "")
         user.save()
+
+        # Create a company for the new user
+        company = Company.objects.create(
+            name=f"{user.name}'s Company",
+            admin=user,
+        )
+        company.members.add(user)
 
         # Generate verification code and send email
         code = user.generate_verification_code()
@@ -80,3 +90,12 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField(required=True)
     token = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True, min_length=8)
+
+
+class UserDetailsSerializer(serializers.ModelSerializer):
+    """Custom user serializer for dj-rest-auth that includes is_onboarded."""
+
+    class Meta:
+        model = User
+        fields = ["pk", "email", "name", "is_onboarded"]
+        read_only_fields = ["pk", "email", "is_onboarded"]

@@ -53,7 +53,7 @@ export default function VerifyEmail() {
       // Auto-login with the returned token
       if (response.data.key) {
         await setAuthToken(response.data.key);
-        navigate("/dashboard");
+        navigate("/onboarding");
       }
     } catch (err) {
       const message = err.response?.data?.detail || "Verification failed. Please try again.";

@@ -98,6 +98,7 @@ ACCOUNT_EMAIL_VERIFICATION = "none"
 REST_AUTH = {
     "USE_JWT": False,
     "REGISTER_SERIALIZER": "backend.apps.users.serializers.CustomRegisterSerializer",
+    "USER_DETAILS_SERIALIZER": "backend.apps.users.serializers.UserDetailsSerializer",
 }
 
 MIDDLEWARE = [
@@ -185,6 +186,10 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = []
 if FRONTEND_DIR.exists():
     STATICFILES_DIRS.append(FRONTEND_DIR)  # Vite build output (assets/, vite.svg, etc.)
+
+# Media files (user uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = PROJECT_ROOT / "media"
 
 
 # Email Configuration

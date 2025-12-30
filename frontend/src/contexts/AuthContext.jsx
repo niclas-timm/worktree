@@ -60,6 +60,13 @@ export function AuthProvider({ children }) {
     setUser(userResponse.data);
   };
 
+  const refreshUser = async () => {
+    if (token) {
+      const userResponse = await authApi.getUser();
+      setUser(userResponse.data);
+    }
+  };
+
   const value = {
     user,
     token,
@@ -69,6 +76,7 @@ export function AuthProvider({ children }) {
     register,
     logout,
     setAuthToken,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

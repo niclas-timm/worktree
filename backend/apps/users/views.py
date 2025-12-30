@@ -6,7 +6,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -215,5 +215,27 @@ class PasswordResetConfirmView(APIView):
 
         return Response(
             {"detail": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class CompleteOnboardingView(APIView):
+    """Mark the current user as having completed onboarding."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.is_onboarded:
+            return Response(
+                {"detail": "Onboarding already completed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_onboarded = True
+        user.save(update_fields=["is_onboarded"])
+
+        return Response(
+            {"detail": "Onboarding completed successfully."},
             status=status.HTTP_200_OK,
         )

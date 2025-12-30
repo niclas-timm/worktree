@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path, re_path
@@ -16,6 +18,12 @@ urlpatterns = [
     path("api/auth/", include("backend.apps.users.urls")),
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+    # Companies
+    path("api/companies/", include("backend.apps.companies.urls")),
     # Catch-all: serve React frontend for client-side routing
-    re_path(r"^(?!admin|api|static).*$", FrontendView.as_view(), name="frontend"),
+    re_path(r"^(?!admin|api|static|media).*$", FrontendView.as_view(), name="frontend"),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
