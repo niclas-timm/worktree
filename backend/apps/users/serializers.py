@@ -67,3 +67,16 @@ class ResendVerificationSerializer(serializers.Serializer):
 
     def validate_email(self, email):
         return email.lower()
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, email):
+        return email.lower()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8)

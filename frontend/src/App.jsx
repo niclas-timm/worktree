@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import VerifyEmail from "@/pages/VerifyEmail";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 
 function ProtectedRoute({ children }) {
@@ -65,6 +67,22 @@ function AppRoutes() {
         element={
           <PublicRoute>
             <VerifyEmail />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/reset-password/:uid/:token"
+        element={
+          <PublicRoute>
+            <ResetPassword />
           </PublicRoute>
         }
       />
