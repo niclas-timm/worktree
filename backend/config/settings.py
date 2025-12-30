@@ -14,6 +14,10 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent  # The ticketing/ directory
+
+# Frontend build directory (Vite outputs to frontend/dist)
+FRONTEND_DIR = PROJECT_ROOT / 'frontend' / 'dist'
 
 
 # Quick-start development settings - unsuitable for production
@@ -54,7 +58,7 @@ ROOT_URLCONF = 'backend.config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [FRONTEND_DIR],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -115,3 +119,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = []
+if FRONTEND_DIR.exists():
+    STATICFILES_DIRS.append(FRONTEND_DIR)  # Vite build output (assets/, vite.svg, etc.)
