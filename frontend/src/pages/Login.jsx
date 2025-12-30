@@ -30,6 +30,14 @@ export default function Login() {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
+      // Check if email is not verified
+      if (err.response?.status === 403 && err.response?.data?.email_not_verified) {
+        const userEmail = err.response.data.email || email;
+        localStorage.setItem("pendingVerificationEmail", userEmail);
+        navigate(`/verify-email?email=${encodeURIComponent(userEmail)}`);
+        return;
+      }
+
       const message =
         err.response?.data?.non_field_errors?.[0] ||
         err.response?.data?.detail ||

@@ -37,11 +37,8 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (name, email, password) => {
+    // Registration requires email verification, so don't auto-login
     const response = await authApi.register(name, email, password);
-    // After registration, log the user in
-    if (response.status === 201 || response.status === 204) {
-      return login(email, password);
-    }
     return response;
   };
 
@@ -55,6 +52,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const setAuthToken = async (newToken) => {
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
+
+    const userResponse = await authApi.getUser();
+    setUser(userResponse.data);
+  };
+
   const value = {
     user,
     token,
@@ -63,6 +68,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    setAuthToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,0 +1,13 @@
+{% extends "email/base/base.txt" %}
+
+{% block content %}
+Verify your email address
+
+Hi{% if name %} {{ name }}{% endif %}, thanks for signing up! Please use the following code to verify your email address:
+
+{{ verification_code }}
+
+This code will expire in 15 minutes.
+
+If you didn't create an account with us, you can safely ignore this email.
+{% endblock %}

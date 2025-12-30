@@ -38,6 +38,10 @@ export const authApi = {
   logout: () => api.post("/auth/logout/"),
 
   getUser: () => api.get("/auth/user/"),
+
+  verifyEmail: (email, code) => api.post("/auth/verify-email/", { email, code }),
+
+  resendVerificationCode: (email) => api.post("/auth/resend-verification/", { email }),
 };
 
 export default api;

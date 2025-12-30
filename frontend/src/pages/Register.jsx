@@ -29,7 +29,9 @@ export default function Register() {
 
     try {
       await register(name, email, password);
-      navigate("/dashboard");
+      // Store email for verification page and redirect
+      localStorage.setItem("pendingVerificationEmail", email);
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
       const data = err.response?.data || {};
       const newErrors = {};

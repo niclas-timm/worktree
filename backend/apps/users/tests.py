@@ -1,5 +1,9 @@
+from datetime import timedelta
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
 
@@ -59,6 +63,69 @@ class UserModelTests(TestCase):
         )
         self.assertEqual(str(user), "test@example.com")
 
+    def test_new_user_is_not_email_verified(self):
+        """Test that new users have is_email_verified=False by default."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        self.assertFalse(user.is_email_verified)
+
+    def test_generate_verification_code(self):
+        """Test generating a verification code."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        code = user.generate_verification_code()
+        self.assertEqual(len(code), 6)
+        self.assertTrue(code.isdigit())
+        self.assertEqual(user.email_verification_code, code)
+        self.assertIsNotNone(user.email_verification_code_created_at)
+
+    def test_is_verification_code_valid_success(self):
+        """Test that valid code returns True."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        code = user.generate_verification_code()
+        self.assertTrue(user.is_verification_code_valid(code))
+
+    def test_is_verification_code_valid_wrong_code(self):
+        """Test that wrong code returns False."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        user.generate_verification_code()
+        self.assertFalse(user.is_verification_code_valid("000000"))
+
+    def test_is_verification_code_valid_expired(self):
+        """Test that expired code returns False."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        code = user.generate_verification_code()
+        # Set code creation time to 16 minutes ago (expired)
+        user.email_verification_code_created_at = timezone.now() - timedelta(minutes=16)
+        user.save()
+        self.assertFalse(user.is_verification_code_valid(code))
+
+    def test_is_verification_code_valid_no_code_set(self):
+        """Test that checking code when none is set returns False."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        self.assertFalse(user.is_verification_code_valid("123456"))
+
+    def test_verify_email(self):
+        """Test the verify_email method."""
+        user = User.objects.create_user(
+            email="test@example.com", password="testpass123", name="Test"
+        )
+        user.generate_verification_code()
+        user.verify_email()
+        self.assertTrue(user.is_email_verified)
+        self.assertIsNone(user.email_verification_code)
+        self.assertIsNone(user.email_verification_code_created_at)
+
 
 class RegistrationTests(APITestCase):
     """Test user registration endpoint."""
@@ -67,7 +134,8 @@ class RegistrationTests(APITestCase):
         self.client = APIClient()
         self.register_url = "/api/auth/registration/"
 
-    def test_successful_registration(self):
+    @patch("backend.apps.core.email.send_email")
+    def test_successful_registration(self, mock_send_email):
         """Test successful user registration with valid data."""
         data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
         response = self.client.post(self.register_url, data)
@@ -75,6 +143,27 @@ class RegistrationTests(APITestCase):
         self.assertTrue(User.objects.filter(email="john@example.com").exists())
         user = User.objects.get(email="john@example.com")
         self.assertEqual(user.name, "John Doe")
+
+    @patch("backend.apps.core.email.send_email")
+    def test_registration_generates_verification_code(self, mock_send_email):
+        """Test that registration generates a verification code."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        self.client.post(self.register_url, data)
+        user = User.objects.get(email="john@example.com")
+        self.assertIsNotNone(user.email_verification_code)
+        self.assertEqual(len(user.email_verification_code), 6)
+        self.assertFalse(user.is_email_verified)
+
+    @patch("backend.apps.core.email.send_email")
+    def test_registration_sends_verification_email(self, mock_send_email):
+        """Test that registration sends a verification email."""
+        data = {"name": "John Doe", "email": "john@example.com", "password1": "securepass123"}
+        self.client.post(self.register_url, data)
+        mock_send_email.assert_called_once()
+        call_kwargs = mock_send_email.call_args[1]
+        self.assertEqual(call_kwargs["to"], "john@example.com")
+        self.assertEqual(call_kwargs["template_name"], "auth/verify_email")
+        self.assertIn("verification_code", call_kwargs["context"])
 
     def test_registration_without_name(self):
         """Test registration fails when name is missing."""
@@ -170,12 +259,24 @@ class LoginTests(APITestCase):
             password=self.user_data["password"],
             name="Test User",
         )
+        # Verify user for most tests
+        self.user.is_email_verified = True
+        self.user.save()
 
     def test_successful_login(self):
         """Test successful login with valid credentials."""
         response = self.client.post(self.login_url, self.user_data)
         self.assertEqual(response.status_code, 200)
         self.assertIn("key", response.data)
+
+    def test_login_unverified_user_returns_403(self):
+        """Test login fails for unverified user with 403."""
+        self.user.is_email_verified = False
+        self.user.save()
+        response = self.client.post(self.login_url, self.user_data)
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(response.data.get("email_not_verified"))
+        self.assertEqual(response.data.get("email"), self.user.email)
 
     def test_login_with_wrong_password(self):
         """Test login fails with incorrect password."""
@@ -236,6 +337,8 @@ class TokenAuthenticationTests(APITestCase):
         self.user = User.objects.create_user(
             email="testuser@example.com", password="testpass123", name="Test User"
         )
+        self.user.is_email_verified = True
+        self.user.save()
         self.token = Token.objects.create(user=self.user)
         self.user_detail_url = "/api/auth/user/"
 
@@ -286,6 +389,8 @@ class LogoutTests(APITestCase):
         self.user = User.objects.create_user(
             email="testuser@example.com", password="testpass123", name="Test User"
         )
+        self.user.is_email_verified = True
+        self.user.save()
         self.token = Token.objects.create(user=self.user)
 
     def test_successful_logout(self):
@@ -307,3 +412,126 @@ class LogoutTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION="Token invalidtoken123")
         response = self.client.post(self.logout_url)
         self.assertEqual(response.status_code, 401)
+
+
+class VerifyEmailTests(APITestCase):
+    """Test email verification endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.verify_url = "/api/auth/verify-email/"
+        self.user = User.objects.create_user(
+            email="testuser@example.com", password="testpass123", name="Test User"
+        )
+        self.code = self.user.generate_verification_code()
+
+    def test_successful_verification(self):
+        """Test successful email verification returns token."""
+        data = {"email": self.user.email, "code": self.code}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_email_verified)
+        self.assertIsNone(self.user.email_verification_code)
+        # Should return auth token for auto-login
+        self.assertIn("key", response.data)
+        self.assertTrue(Token.objects.filter(user=self.user).exists())
+
+    def test_verification_with_wrong_code(self):
+        """Test verification fails with wrong code."""
+        data = {"email": self.user.email, "code": "000000"}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("invalid", response.data["detail"].lower())
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_email_verified)
+
+    def test_verification_with_expired_code(self):
+        """Test verification fails with expired code."""
+        self.user.email_verification_code_created_at = timezone.now() - timedelta(minutes=16)
+        self.user.save()
+        data = {"email": self.user.email, "code": self.code}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("expired", response.data["detail"].lower())
+
+    def test_verification_with_nonexistent_email(self):
+        """Test verification fails with non-existent email."""
+        data = {"email": "nonexistent@example.com", "code": "123456"}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_verification_already_verified(self):
+        """Test verification fails for already verified user."""
+        self.user.is_email_verified = True
+        self.user.save()
+        data = {"email": self.user.email, "code": self.code}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("already verified", response.data["detail"].lower())
+
+    def test_verification_missing_email(self):
+        """Test verification fails without email."""
+        data = {"code": self.code}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_verification_missing_code(self):
+        """Test verification fails without code."""
+        data = {"email": self.user.email}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_verification_code_too_short(self):
+        """Test verification fails with code that's too short."""
+        data = {"email": self.user.email, "code": "12345"}
+        response = self.client.post(self.verify_url, data)
+        self.assertEqual(response.status_code, 400)
+
+
+class ResendVerificationTests(APITestCase):
+    """Test resend verification code endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.resend_url = "/api/auth/resend-verification/"
+        self.user = User.objects.create_user(
+            email="testuser@example.com", password="testpass123", name="Test User"
+        )
+
+    @patch("backend.apps.users.views.send_email")
+    def test_successful_resend(self, mock_send_email):
+        """Test successful resend of verification code."""
+        old_code = self.user.generate_verification_code()
+        data = {"email": self.user.email}
+        response = self.client.post(self.resend_url, data)
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        # New code should be generated
+        self.assertNotEqual(self.user.email_verification_code, old_code)
+        mock_send_email.assert_called_once()
+
+    @patch("backend.apps.users.views.send_email")
+    def test_resend_for_nonexistent_email(self, mock_send_email):
+        """Test resend returns success for non-existent email (security)."""
+        data = {"email": "nonexistent@example.com"}
+        response = self.client.post(self.resend_url, data)
+        # Should return 200 to not reveal if email exists
+        self.assertEqual(response.status_code, 200)
+        mock_send_email.assert_not_called()
+
+    @patch("backend.apps.users.views.send_email")
+    def test_resend_for_already_verified(self, mock_send_email):
+        """Test resend fails for already verified user."""
+        self.user.is_email_verified = True
+        self.user.save()
+        data = {"email": self.user.email}
+        response = self.client.post(self.resend_url, data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("already verified", response.data["detail"].lower())
+        mock_send_email.assert_not_called()
+
+    def test_resend_missing_email(self):
+        """Test resend fails without email."""
+        response = self.client.post(self.resend_url, {})
+        self.assertEqual(response.status_code, 400)

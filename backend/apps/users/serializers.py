@@ -33,7 +33,37 @@ class CustomRegisterSerializer(RegisterSerializer):
         return attrs
 
     def save(self, request):
+        from backend.apps.core.email import send_email
+
         user = super().save(request)
         user.name = self.validated_data.get("name", "")
         user.save()
+
+        # Generate verification code and send email
+        code = user.generate_verification_code()
+        send_email(
+            to=user.email,
+            subject="Verify your email address",
+            template_name="auth/verify_email",
+            context={
+                "name": user.name,
+                "verification_code": code,
+            },
+        )
+
         return user
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(max_length=6, min_length=6, required=True)
+
+    def validate_email(self, email):
+        return email.lower()
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, email):
+        return email.lower()
