@@ -1,0 +1,11 @@
+{% extends "email/base/base.txt" %}
+
+{% block content %}
+Hello, {{ name }}!
+
+This is a test email to verify the email system is working correctly.
+
+Your message: {{ message }}
+
+Visit: {{ site_url }}
+{% endblock %}

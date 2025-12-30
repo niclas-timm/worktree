@@ -1,0 +1,7 @@
+{% block content %}{% endblock %}
+
+---
+{% block footer %}
+(c) {{ current_year }} {{ site_name }}
+Questions? Contact us at {{ support_email }}
+{% endblock %}

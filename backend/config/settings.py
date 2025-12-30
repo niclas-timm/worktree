@@ -10,11 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent  # The ticketing/ directory
+
+# Load environment variables from .env file
+load_dotenv(PROJECT_ROOT / ".env")
 
 # Frontend build directory (Vite outputs to frontend/dist)
 FRONTEND_DIR = PROJECT_ROOT / 'frontend' / 'dist'
@@ -64,6 +70,7 @@ INSTALLED_APPS = [
     "dj_rest_auth",
     "dj_rest_auth.registration",
     # Local apps
+    "backend.apps.core",
     "backend.apps.users",
 ]
 
@@ -171,3 +178,30 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = []
 if FRONTEND_DIR.exists():
     STATICFILES_DIRS.append(FRONTEND_DIR)  # Vite build output (assets/, vite.svg, etc.)
+
+
+# Email Configuration
+# https://docs.djangoproject.com/en/6.0/topics/email/
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",  # Console for development
+)
+
+# SMTP Settings (for production)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
+
+# Default sender
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@ticketing.local")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+
+# Site settings (used in email templates)
+SITE_NAME = os.getenv("SITE_NAME", "Ticketing")
+SITE_URL = os.getenv("SITE_URL", "http://localhost:3000")
+SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", DEFAULT_FROM_EMAIL)

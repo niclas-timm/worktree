@@ -1,0 +1,13 @@
+{% comment %}
+Usage: {% include "email/components/button.html" with url=action_url text="Click Here" %}
+Optional: bg_color="#3b82f6" text_color="#ffffff"
+{% endcomment %}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+    <tr>
+        <td style="border-radius: 6px; background-color: {{ bg_color|default:'#1a4f56' }};">
+            <a href="{{ url }}" target="_blank" style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 600; color: {{ text_color|default:'#ffffff' }}; text-decoration: none;">
+                {{ text }}
+            </a>
+        </td>
+    </tr>
+</table>
